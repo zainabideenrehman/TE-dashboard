@@ -42,7 +42,7 @@ export function Dashboard({
   initialPage?: Page;
 }) {
   const [page] = useState<Page>(initialPage),
-    [data, setData] = useState<Registry & { mode?: string; reviewOnly?: boolean }>({ sources: [] }),
+    [data, setData] = useState<Registry & { mode?: string; reviewOnly?: boolean; configurationReadOnly?: boolean }>({ sources: [] }),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -458,7 +458,13 @@ export function Dashboard({
                   )}
                 </section>
               )}
-              {page === "Data Sources" && (
+              {page === "Data Sources" && data.configurationReadOnly && (
+                <section className="space-y-4">
+                  <p>Source settings are read-only on this deployment. Review and publish mapping changes from the local dashboard.</p>
+                  {data.sources.map(s => <div key={s.sourceId} className="rounded-xl border p-4"><strong>{s.displayName}</strong><p>{s.tabName} · Mapping v{s.version}</p><p>{s.error || (s.lastRefresh ? `Last refreshed: ${new Date(s.lastRefresh).toLocaleString()}` : "Waiting for first refresh")}</p><Button disabled={busy} onClick={() => void act({action: "refresh", sourceId: s.sourceId})}>Refresh Data</Button></div>)}
+                </section>
+              )}
+              {page === "Data Sources" && !data.configurationReadOnly && (
                 <>
                   <section className="panel mb-6">
                     <h2>Add a spreadsheet</h2>

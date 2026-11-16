@@ -15,3 +15,5 @@ dist/
 .vercel/
 # Local operational history contains live-data observations.
 WORK_CHECKPOINT.md
+.vercel
+.env*

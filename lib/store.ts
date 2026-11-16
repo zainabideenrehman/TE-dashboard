@@ -108,6 +108,7 @@ export class LocalRegistryStore implements RegistryStore {
   }
 }
 export function store(): RegistryStore {
+  if (process.env.VERCEL) return hostedStore();
   if (process.env.CONFIG_STORAGE && process.env.CONFIG_STORAGE !== "local")
     throw Error(
       "Firestore adapter is not implemented. Local registry is development-only.",
@@ -117,4 +118,40 @@ export function store(): RegistryStore {
       "Local disk persistence is unsafe on Cloud Run. Implement a durable RegistryStore adapter and protected data cache first.",
     );
   return new LocalRegistryStore();
+}
+
+// Hosted configuration is an immutable deployment snapshot, never a business-data file.
+// Parsed records and last-good values remain in process memory only.
+let hosted: RegistryStore | undefined;
+function hostedStore(): RegistryStore {
+  if (hosted) return hosted;
+  if (process.env.DATA_MODE !== "GOOGLE") throw Error("Hosted deployment requires GOOGLE mode.");
+  const registry = JSON.parse(process.env.SOURCE_REGISTRY_JSON || "null") as Registry | null;
+  if (!registry || !Array.isArray(registry.sources) || !registry.sources.length)
+    throw Error("Configure the approved hosted source registry.");
+  for (const source of registry.sources) {
+    // Never hydrate cached employee or business records from deployment configuration.
+    delete source.data;
+    delete source.inspection;
+    delete source.approved;
+    delete source.previewApproval;
+    delete source.lastAttempt;
+    delete source.lastRefresh;
+    source.revisions = [];
+  }
+  let queue: Promise<unknown> = Promise.resolve();
+  hosted = {
+    async read() { return structuredClone(registry); },
+    update(change) {
+      const operation = queue.then(async () => {
+        const next = structuredClone(registry);
+        await change(next);
+        registry.sources = next.sources;
+        return structuredClone(registry);
+      });
+      queue = operation.catch(() => {});
+      return operation;
+    },
+  };
+  return hosted;
 }

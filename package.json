@@ -8,7 +8,7 @@
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --conditions=react-server --import tsx --test tests/parser.test.ts tests/extra-parser.test.ts tests/employees.test.ts tests/service.test.ts tests/workflow.test.ts tests/hr-review-proxy.test.mjs tests/upwork.test.ts",
+    "test": "node --conditions=react-server --import tsx --test tests/parser.test.ts tests/extra-parser.test.ts tests/employees.test.ts tests/service.test.ts tests/workflow.test.ts tests/hr-review-proxy.test.mjs tests/upwork.test.ts tests/hosted.test.ts",
     "test:smoke": "node --import tsx tests/http-smoke.ts",
     "share:hr": "node scripts/hr-review.mjs"
   },

@@ -371,6 +371,9 @@ export function client(): SheetsClient {
   return createGoogleClient(async () => {
     const { google } = await import("googleapis");
     const auth = new google.auth.GoogleAuth({
+      ...(process.env.GOOGLE_SERVICE_ACCOUNT_JSON
+        ? { credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON) }
+        : {}),
       scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
       projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || undefined,
     });

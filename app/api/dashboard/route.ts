@@ -12,6 +12,15 @@ function failure(error: unknown) {
   );
 }
 function localOrigin(req: NextRequest) {
+  if (process.env.VERCEL) {
+    const configured = process.env.DASHBOARD_ORIGIN;
+    const origin = configured && new URL(configured);
+    if (!origin || origin.protocol !== "https:" || origin.origin !== configured)
+      throw Error("Configure the protected dashboard HTTPS origin.");
+    if (req.headers.get("host") !== origin.host)
+      throw Error("Unrecognized dashboard host.");
+    return origin.origin;
+  }
   // Next.js can normalize req.nextUrl to localhost even when the browser uses
   // 127.0.0.1. Use the actual Host header, restricted to loopback hosts.
   const host = req.headers.get("host") || "";
@@ -35,6 +44,7 @@ export async function GET(req: NextRequest) {
       {
         ...(await store().read()),
         mode: process.env.DATA_MODE === "GOOGLE" ? "GOOGLE" : "DEMO",
+        configurationReadOnly: !!process.env.VERCEL,
       },
       { headers },
     );
@@ -54,6 +64,8 @@ export async function POST(req: NextRequest) {
     const body: unknown = JSON.parse(raw);
     if (!body || Array.isArray(body) || typeof body !== "object")
       throw Error("Invalid request.");
+    if (process.env.VERCEL && (body as Record<string, unknown>).action !== "refresh")
+      throw Error("Hosted source configuration is read-only. Publish mapping changes from the reviewed local registry.");
     const result = await executeAction(body as Record<string, unknown>);
     const failed = result && typeof result === "object" && "error" in result;
     return NextResponse.json(result, { status: failed ? 400 : 200, headers });

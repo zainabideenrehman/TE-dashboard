@@ -1,0 +1,10 @@
+key/
+.env*
+.data/
+.git/
+.next/
+node_modules/
+WORK_CHECKPOINT.md
+*.tsbuildinfo
+*.pem
+*service-account*.json
