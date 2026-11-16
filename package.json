@@ -1,0 +1,41 @@
+{
+  "name": "agency-command-center",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --conditions=react-server --import tsx --test tests/parser.test.ts tests/extra-parser.test.ts tests/employees.test.ts tests/service.test.ts tests/workflow.test.ts tests/hr-review-proxy.test.mjs tests/upwork.test.ts",
+    "test:smoke": "node --import tsx tests/http-smoke.ts",
+    "share:hr": "node scripts/hr-review.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "googleapis": "^160.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "15.5.28",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "15.5.28",
+    "tailwindcss": "^4.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "postcss": "8.5.23"
+  }
+}

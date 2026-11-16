@@ -1,0 +1,89 @@
+@import "tailwindcss";
+:root {
+  color-scheme: light;
+}
+body {
+  margin: 0;
+  background: #f5f7fa;
+  color: #172638;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+a,
+input,
+select,
+textarea {
+  outline-offset: 4px;
+}
+button {
+  cursor: pointer;
+}
+input,
+select,
+textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px;
+  background: white;
+  max-width: 100%;
+}
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+th,
+td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf0f4;
+}
+th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  background: #f8fafc;
+}
+h1 {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -1px;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 22px;
+}
+.muted {
+  color: #64748b;
+  font-size: 14px;
+}
+.badge {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #e2f3ef;
+  color: #14685c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.scroll {
+  overflow: auto;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}

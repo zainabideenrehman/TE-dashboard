@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.*.local
+!.env.example
+.data/
+*service-account*.json
+*.pem
+*.tsbuildinfo
+/key/
+
+.vercel/
+# Local operational history contains live-data observations.
+WORK_CHECKPOINT.md
