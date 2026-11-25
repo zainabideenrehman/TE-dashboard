@@ -22,7 +22,8 @@ import { AttendanceCalendar } from "./attendance-calendar";
 import { AttendanceSummary } from "./attendance-summary";
 import type { Mapping, Parsed, Registry, Source } from "@/lib/domain";
 import { structureDiff } from "@/lib/parser";
-type Page = "Overview" | "Employees" | "Attendance" | "Data Sources" | "Upwork BD";
+import { Integrations } from "./integrations";
+type Page = "Overview" | "Employees" | "Attendance" | "Data Sources" | "Upwork BD" | "Integrations";
 async function request(payload?: unknown) {
   const response = await fetch(
     "/api/dashboard",
@@ -177,6 +178,7 @@ export function Dashboard({
               { name: "Attendance", icon: CalendarDays },
               { name: "Upwork BD", icon: BarChart3 },
               { name: "Data Sources", icon: Database },
+              { name: "Integrations", icon: Layers },
             ] as const
           ).filter(({ name }) => !data.reviewOnly || (name !== "Data Sources" && name !== "Upwork BD")).map(({ name, icon: Icon }) => (
             <Link
@@ -186,7 +188,9 @@ export function Dashboard({
                   ? "/"
                   : name === "Data Sources"
                     ? "/data-sources"
-                    : `/people/${name.toLowerCase()}`
+                    : name === "Integrations"
+                      ? "/integrations"
+                      : `/people/${name.toLowerCase()}`
               }
               aria-current={page === name ? "page" : undefined}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors lg:mb-1 lg:w-full ${page === name ? "bg-teal-300/15 font-semibold text-teal-200" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}
@@ -232,6 +236,8 @@ export function Dashboard({
                   ? "A shared view of your people, attendance, and connected sources."
                   : page === "Upwork BD" ? "Proposal activity, recorded outcomes, bidder performance and connects." : page === "Data Sources"
                     ? "Connect, inspect, and approve your spreadsheet mappings."
+                    : page === "Integrations"
+                      ? "Turn reviewed opportunities into profile-specific, editable proposal drafts."
                     : "People and attendance from published source mappings."}
               </p>
             </div>
@@ -264,6 +270,7 @@ export function Dashboard({
           ) : (
             <>
               {page === "Upwork BD" && !data.reviewOnly && <UpworkAnalytics sources={data.sources} />}
+              {page === "Integrations" && !data.reviewOnly && <Integrations sources={data.sources} />}
               {page === "Overview" && (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-7">

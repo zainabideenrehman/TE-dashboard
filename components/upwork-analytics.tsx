@@ -8,6 +8,7 @@ import {reportTabs, type ReportKind} from '@/lib/upwork-reports';
 import {UpworkKnowledge} from "./upwork-knowledge";
 import {UpworkDiscovery} from "./upwork-discovery";
 import { UpworkOutcomeRates, UpworkTrend, type TrendMetric } from "./upwork-performance";
+import { Integrations } from "./integrations";
 
 const percentage = (value: number | undefined) => value === undefined ? "—" : `${(value * 100).toFixed(1)}%`;
 const number = (value: number) => value.toLocaleString("en-US");
@@ -15,7 +16,7 @@ function statusClass(stage?: string) {
   return stage === "Won" ? "bg-emerald-100 text-emerald-900" : stage === "Interview" ? "bg-violet-100 text-violet-900" : stage === "Replied" ? "bg-blue-100 text-blue-900" : stage === "Lost" || stage === "Closed" ? "bg-rose-100 text-rose-900" : "bg-slate-100 text-slate-700";
 }
 export function UpworkAnalytics({ sources }: { sources: Source[] }) {
-  const [view,setView]=useState<"analytics"|"applied"|"keywords"|"relevant-jobs"|ReportKind>("applied");
+  const [view,setView]=useState<"analytics"|"applied"|"apply"|"keywords"|"relevant-jobs"|ReportKind>("applied");
   const linked = sources.filter(s => s.dataType === "upwork-bd");
   const [demo, setDemo] = useState(false);
   const [start, setStart] = useState(""), [end, setEnd] = useState(todayInKarachi());
@@ -49,7 +50,7 @@ export function UpworkAnalytics({ sources }: { sources: Source[] }) {
   }
   const navigation = (
     <nav aria-label="Upwork views" className="flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
-      {([["applied", "Applied jobs & performance"], ["analytics", "Discovery analytics"], ["keywords", "Keyword Search"], ["relevant-jobs", "Relevant Jobs"], ...(Object.keys(reportTabs) as ReportKind[]).map(label => [label, label] as const)] as const).map(([id, label]) => (
+      {([["applied", "Applied jobs & performance"], ["apply", "Apply jobs"], ["analytics", "Discovery analytics"], ["keywords", "Keyword Search"], ["relevant-jobs", "Relevant Jobs"], ...(Object.keys(reportTabs) as ReportKind[]).map(label => [label, label] as const)] as const).map(([id, label]) => (
         <button key={id} aria-pressed={view === id}
           className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${view === id ? "bg-slate-950 text-white" : "text-slate-700 hover:bg-slate-100"}`}
           onClick={() => setView(id)}>{label}</button>
@@ -57,6 +58,7 @@ export function UpworkAnalytics({ sources }: { sources: Source[] }) {
     </nav>
   );
   if(view==="analytics")return <div className="space-y-5">{navigation}<UpworkDiscovery sources={linked} proposals={live}/></div>;
+  if(view==="apply")return <div className="space-y-5">{navigation}<Integrations sources={sources}/></div>;
   if(view==="keywords"||view==="relevant-jobs")return <div className="space-y-5">{navigation}<UpworkKnowledge key={view} kind={view} sources={linked} proposals={live}/></div>;
   if (view !== "applied") {
     const reports = linked.filter(source => source.mapping.upwork?.report === view);

@@ -1,0 +1,16 @@
+# Pre-2026 engagements (predate the proposal-engine folder structure)
+DORTHEA/
+Faitron AG/
+LIGHT Health/
+WindAI/
+
+# Browser automation session artifacts
+.playwright-mcp/
+
+# Local Claude Code overrides
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
