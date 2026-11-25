@@ -1,4 +1,4 @@
-﻿export type Grid = string[][];
+export type Grid = string[][];
 export type ProfileLinkCells = Record<
   string,
   { value: string; urls: string[] }
@@ -38,16 +38,18 @@ export type UpworkProposal = {
   jobUrl?: string;
   connects?: number;
   boostedConnects?: number;
+  totalConnects?: number;
   kind?: "Proposal" | "Invite";
   rawDate?: string;
   rawTime?: string;
-  flags?: { viewed?: boolean; replied?: boolean; interviewed?: boolean; hired?: boolean; called?: boolean; boosted?: boolean; video?: boolean };
+  flags?: { viewed?: boolean; replied?: boolean; interviewed?: boolean; hired?: boolean; called?: boolean; boosted?: boolean; outbid?: boolean; video?: boolean };
   details?: Record<string, string>;
   issues?: string[];
   source: { spreadsheetId: string; tab: string; row: number };
 };
 export type UpworkMapping = {
   knowledge?: "keywords" | "relevant-jobs";
+  report?: import("./upwork-reports").ReportKind;
   appliedJobs?: { year: number; dateAnchorColumn: number; connectsMode: "separate"; defaultStartDate: string };
   proposalId: string;
   submittedDate: string;
@@ -111,6 +113,7 @@ export type Inspection = {
   nameFormatting?: import("./formatting").NameFormatting;
 };
 export type Parsed = {
+  upworkReport?: import("./upwork-reports").ReportRow[];
   upworkKnowledge?: UpworkKnowledgeRecord[];
   upwork?: UpworkProposal[];
   reviews?: string[];

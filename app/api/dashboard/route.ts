@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { store } from "@/lib/store";
 import { executeAction, refresh } from "@/lib/service";
+import { authorized } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ function localOrigin(req: NextRequest) {
   return req.nextUrl.protocol + "//" + host;
 }
 export async function GET(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: "Please sign in." }, { status: 401, headers });
   try {
     localOrigin(req);
     const registry = await store().read();
@@ -53,6 +55,7 @@ export async function GET(req: NextRequest) {
   }
 }
 export async function POST(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: "Please sign in." }, { status: 401, headers });
   try {
     const origin = req.headers.get("origin");
     if (!origin || origin !== localOrigin(req))

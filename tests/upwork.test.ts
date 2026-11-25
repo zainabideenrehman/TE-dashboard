@@ -121,6 +121,11 @@ test("Upwork stage and date ambiguity block publication rather than guessing",()
   assert.throws(()=>parseUpwork(grid,upworkDemoMapping,"demo","Proposals"),/ISO/);
   assert.throws(()=>validateMapping({...appliedMapping,upwork:{...appliedJobsMapping,owner:"Password"}}),/excluded/);
   assert.equal(appliedDate("10/11/2026",2026),undefined);
+  assert.equal(appliedDate("11/9/2026", 2026, "Mon, Nov 2026"), "2026-11-09");
+  assert.equal(appliedDate("10/11/2026", 2026, "Tue, Nov 2026"), "2026-11-10");
+  assert.equal(appliedDate("11/12/2026", 2026, "Thu, Nov 2026"), "2026-11-12");
+  assert.equal(appliedDate("11/12/2026", 2026, "Fri, Nov 2026"), undefined);
+  assert.equal(appliedDate("11/12/2026", 2026, "Thu, Nov 2025"), undefined);
   assert.equal(appliedDate("21/10/2026",2026),"2026-10-21");
   assert.equal(appliedDate("10/23/2026",2026),"2026-10-23");
   assert.equal(appliedDate("Tuesday, 28th Jan",2026),"2026-01-28");
@@ -200,4 +205,45 @@ test("explicit Applied Jobs column bounds allow wide allocation without reading 
   assert.deepEqual(calls,["'Applied Jobs'!A1:AS3000"]);
   assert.equal((await client.profileLinks!("demo","Applied Jobs",[1]))["1:1"].urls[0],"https://www.upwork.com/jobs/~demo");
   await assert.rejects(()=>client.grid("demo","Applied Jobs",undefined,61),/column bound/);
+});
+
+test("Applied Jobs keeps explicit totals, boosts and outbid independent", async () => {
+  const { parseAppliedJobs, appliedJobsMapping } = await import("../lib/upwork-applied");
+  const header = ["Applied Date", "Jobs/ Proposal Links", "Day", "Result", "Applied By", "Profile", "Connects", "Proposal/Invite", "Boosted Connects", "Time", "Viewed", "Messaged", "Started Interviews", "Call", "Hired", "Boosted", "Video Interview", "Total Connects", "Out Bid"];
+  const row = ["2026-11-20", "Build dashboard", "", "Still Open", "BD", "Profile", "10", "Proposal", "4", "", "", "", "", "", "", "", "", "12", "Yes"];
+  const proposal = parseAppliedJobs([header, row], appliedJobsMapping, "sheet", "Applied").upwork![0];
+  assert.equal(proposal.connects, 10);
+  assert.equal(proposal.boostedConnects, 4);
+  assert.equal(proposal.totalConnects, 12);
+  assert.equal(proposal.flags?.outbid, true);
+});
+
+test("weekly reports preserve agency and client outcomes and connects history excludes payment", async () => {
+  const { parseReport } = await import("../lib/upwork-reports");
+  const weekly = parseReport([
+    ["Start - End Date", "No of Jobs Applied", "Connects", "Interview", "Close/Hire", "Other Interviews", "other Hires", "Out Bid"],
+    ["Nov 16 - Nov 22", "8", "60", "2", "1", "4", "3", "2"],
+  ], "Weekly Report").upworkReport![0];
+  assert.equal(weekly.fields.Interview, "2");
+  assert.equal(weekly.fields["Close/Hire"], "1");
+  assert.equal(weekly.fields["Other Interviews"], "4");
+  assert.equal(weekly.fields["Out Bid"], "2");
+  const history = parseReport([
+    ["Profile A", "", "", "", "", "Profile B"],
+    ["Date", "Connects", "Payement", "Resource", "", "Date", "Connects", "Payement", "Resource"],
+    ["20/10/2026", "20", "99", "Ledger", "", "21/10/2026", "40", "100", "Ledger"],
+  ], "Connects History").upworkReport!;
+  assert.deepEqual(history.map(row => [row.section, row.fields.Connects]), [["Profile A", "20"], ["Profile B", "40"]]);
+  assert.equal(history[0].fields.Payement, undefined);
+});
+
+test("a client hire marking alone does not establish an agency hire", () => {
+  const proposal = {
+    recordId: "demo", submittedDate: "2026-11-20", title: "Synthetic job", owner: "Demo",
+    profile: "Demo", rawStage: "", flags: { hired: true }, source: { spreadsheetId: "demo", tab: "Applied", row: 2 },
+  };
+  const stats = upworkAnalytics([proposal], "2026-11-23");
+  assert.equal(stats.wins, 0);
+  assert.equal(stats.hireEvidence, false);
+  assert.equal(upworkAnalytics([{ ...proposal, stage: "Won" }], "2026-11-23").wins, 1);
 });

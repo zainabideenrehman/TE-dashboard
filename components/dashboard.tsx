@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -13,6 +13,8 @@ import {
 import { Button } from "./ui/button";
 import { UpworkAnalytics } from "./upwork-analytics";
 import { appliedJobsMapping } from "@/lib/upwork-applied";
+import {defaultUpworkMapping} from '@/lib/upwork';
+import {reportTabs, type ReportKind} from '@/lib/upwork-reports';
 import {knowledgeMapping} from "@/lib/upwork-knowledge";
 import { EmployeeProfile } from "./employee-profile";
 import { sharedBankHolidays } from "@/lib/attendance-view";
@@ -152,9 +154,9 @@ export function Dashboard({
   }
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="border-r border-slate-200 bg-white p-6 lg:fixed lg:inset-y-0 lg:w-64">
+      <aside className="border-b border-white/10 bg-slate-950 p-5 text-white lg:fixed lg:inset-y-0 lg:w-64 lg:overflow-y-auto lg:border-b-0 lg:p-6">
         <div className="flex items-center gap-3 mb-10">
-          <span className="rounded-xl bg-teal-800 p-2 text-white">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal-300 text-slate-950">
             <Layers size={23} />
           </span>
           <div className="font-bold text-sm">
@@ -187,7 +189,7 @@ export function Dashboard({
                     : `/people/${name.toLowerCase()}`
               }
               aria-current={page === name ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-lg p-3 text-sm lg:w-full lg:mb-2 ${page === name ? "bg-teal-50 text-teal-800 font-semibold" : "text-slate-500 hover:bg-slate-50"}`}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors lg:mb-1 lg:w-full ${page === name ? "bg-teal-300/15 font-semibold text-teal-200" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}
             >
               <Icon size={18} />
               {name === "Employees"
@@ -198,19 +200,20 @@ export function Dashboard({
             </Link>
           ))}
         </nav>
-        <div className="mt-10 border-t pt-6 text-xs text-slate-400 space-y-4">
+        <form action="/api/auth/logout" method="post" className="mt-6"><button className="text-sm text-slate-300 hover:text-white">Sign out</button></form>
+        <div className="mt-10 hidden space-y-3 border-t border-white/10 pt-6 text-xs text-slate-400 lg:block">
           <p>COMING LATER</p>
           <p>Finance · BD · Development</p>
         </div>
-        <div className="mt-12 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">
-          <span className="block text-teal-700 font-semibold mb-2">
+        <div className="mt-8 hidden rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300 lg:block">
+          <span className="mb-2 block font-semibold text-teal-200">
             Read-only by design
           </span>
           Source spreadsheets stay in your team’s hands.
         </div>
       </aside>
-      <main className="w-full lg:ml-64">
-        <header className="border-b bg-white px-8 py-4 flex justify-between text-xs text-slate-500">
+      <main className="w-full min-w-0 bg-slate-100/70 lg:ml-64">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-4 text-xs text-slate-600 md:px-9">
           <span>
             Workspace /{" "}
             {page === "Employees" || page === "Attendance" ? "People / " : ""}
@@ -223,10 +226,7 @@ export function Dashboard({
         <div className="p-5 md:p-9 max-w-[1500px] mx-auto">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-7">
             <div>
-              <p className="text-xs text-teal-700 mb-2 tracking-widest uppercase">
-                Agency operations
-              </p>
-              <h1>{page === "Overview" ? "Your agency, at a glance" : page}</h1>
+              <h1 className="tracking-tight">{page === "Overview" ? "Your agency, at a glance" : page}</h1>
               <p className="muted mt-2">
                 {page === "Overview"
                   ? "A shared view of your people, attendance, and connected sources."
@@ -954,7 +954,7 @@ export function Dashboard({
                               </div>
                             </details>
                           )}
-                          {source.dataType === "upwork-bd" && <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm"><p>Choose the operational layout for this tab. Prepare a draft, inspect its structure, preview, then publish. Connects and Boosted Connects stay separate.</p><div className="mt-2 flex flex-wrap gap-4">{(["applied","keywords","relevant-jobs"] as const).map(layout=><button key={layout} className="font-semibold underline" onClick={()=>{const current=mappingValue();if(current){setMapping(JSON.stringify({...current,upwork:layout==="applied"?appliedJobsMapping:knowledgeMapping(layout).upwork},null,2));setPreview(undefined);}}}>Prepare {layout==="applied"?"Applied Jobs":layout==="keywords"?"Keyword Search":"Relevant Jobs"} draft</button>)}</div></div>}
+                          {source.dataType === "upwork-bd" && <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm"><p>Choose the operational layout for this tab. Prepare a draft, inspect its structure, preview, then publish. Connects and Boosted Connects stay separate.</p><div className="mt-2 flex flex-wrap gap-4">{(["applied","keywords","relevant-jobs",...Object.keys(reportTabs) as ReportKind[]] as const).map(layout=><button key={layout} className="font-semibold underline" onClick={()=>{const current=mappingValue();if(current){setMapping(JSON.stringify({...current,upwork:layout==="applied"?appliedJobsMapping:layout==="keywords"||layout==="relevant-jobs"?knowledgeMapping(layout).upwork:{...defaultUpworkMapping,report:layout}},null,2));setPreview(undefined);}}}>Prepare {layout==="applied"?"Applied Jobs":layout==="keywords"?"Keyword Search":layout==="relevant-jobs"?"Relevant Jobs":layout} draft</button>)}</div></div>}
                           <div className="grid md:grid-cols-2 gap-6 mt-5">
                             <label>
                               Field mapping, explicit aliases, and status rules

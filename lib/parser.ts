@@ -1,4 +1,4 @@
-﻿import {
+import {
   defaultMapping,
   type Grid,
   type Inspection,
@@ -8,6 +8,7 @@
   type ProfileLinkCells,
 } from "./domain";
 import { excludedEmployeeColumn } from "./employees";
+import { reportHeaders } from './upwork-reports';
 import { parseUpwork } from "./upwork";
 import { parseTextAttendance } from "./attendance";
 
@@ -38,6 +39,10 @@ export function inspect(
   grid: Grid,
   mapping: Mapping = defaultMapping,
 ): Inspection {
+  if (mapping.upwork?.report) {
+    const headers = reportHeaders(grid, mapping.upwork.report);
+    return { at: new Date().toISOString(), headers, months: [], warnings: headers.length ? [] : ["Report header missing."], preview: grid.slice(0, 12) };
+  }
   const anchors = grid.flatMap((r, i) =>
     r
       .filter((c) => monthPattern.test(c.trim()))

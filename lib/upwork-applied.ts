@@ -6,6 +6,8 @@ export const appliedJobsMapping: UpworkMapping = {
   stageMap: { "Still Open": "Submitted", Interviewed: "Interview", Won: "Won", Lost: "Lost", "Hired Someone": "Lost", "Job Closed": "Closed", "Job Closeed": "Closed" },
 };
 const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const weekdayOf = (date: string) => weekdays[new Date(date + "T00:00:00Z").getUTCDay()];
 function monthSectionYear(raw: string): number | undefined {
   const match=raw.match(/^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,\s/-]+(\d{4}|\d{2})$/i);
   return match ? Number(match[2])+(match[2].length===2?2000:0) : undefined;
@@ -15,7 +17,7 @@ function validDate(year: number, month: number, day: number) {
   const parsed = new Date(iso);
   return !isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === iso ? iso : undefined;
 }
-export function appliedDate(text: string, year: number): string | undefined {
+export function appliedDate(text: string, year: number, dayLabel = ""): string | undefined {
   text = text.trim();
   const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return validDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
@@ -25,7 +27,12 @@ export function appliedDate(text: string, year: number): string | undefined {
     if (a > 12 && b <= 12) return validDate(y, b, a);
     if (b > 12 && a <= 12) return validDate(y, a, b);
     if (a === b) return validDate(y, a, b);
-    return undefined; // Mixed US/day-first formats: ambiguous dates require review.
+    const context = dayLabel.match(/^(Sun(?:day)?|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?),\s+([a-z]+)\s+(\d{4})$/i);
+    if (!context || Number(context[3]) !== y || monthSectionYear(`${context[2]} ${context[3]}`) !== y) return undefined;
+    const month = monthNames.indexOf(context[2].slice(0, 3).toLowerCase()) + 1;
+    const day = a === month ? b : b === month ? a : undefined;
+    const date = day === undefined ? undefined : validDate(y, month, day);
+    return date && weekdayOf(date) === context[1].slice(0, 3).toLowerCase() ? date : undefined;
   }
   const named = text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:,?\s+(\d{4}))?\b/i);
   if (named) return validDate(named[3] ? Number(named[3]) : year, monthNames.indexOf(named[2].slice(0,3).toLowerCase()) + 1, Number(named[1]));
@@ -42,25 +49,31 @@ export function parseAppliedJobs(grid: Grid, m: UpworkMapping, spreadsheetId: st
       const contextual = found.filter(i => header[i + 1]?.trim() === "Video Interview");
       if (contextual.length === 1) return contextual[0];
     }
-    if (found.length > 1 && name === "Hired") {
-      const outcome = found.filter(i => header[i - 1]?.trim() === "Call" && header[i + 1]?.trim() === m.stage);
+    if (name === "Hired") {
+      const outcome = found.filter(i => header[i - 1]?.trim().toLowerCase() === "call" && i < header.findIndex(label => label.trim().toLowerCase() === m.stage.trim().toLowerCase()));
       if (outcome.length === 1) return outcome[0];
+      return -1;
     }
     if (found.length > 1 || (required && found.length !== 1)) throw Error("Applied Jobs column missing or ambiguous: " + name);
     return found[0] ?? -1;
   };
   if (header[rules.dateAnchorColumn]?.trim() && header[rules.dateAnchorColumn].trim()!=="Applied Date") throw Error("The approved date-anchor column changed; review structure.");
   const titleCol=index(m.title,true), dateCol=index(m.submittedDate,true), stageCol=index(m.stage,true), ownerCol=index(m.owner,true), profileCol=index(m.profile,true), connectsCol=index(m.connects,true), kindCol=index("Proposal/Invite",true), boostCol=index("Boosted Connects",true), timeCol=index("Time",true);
-  const flagColumns = { viewed:index("Viewed",true), replied:index("Messaged",true), interviewed:index("Started Interviews",true), hired:index("Hired",true), called:index("Call",true), boosted:index("Boosted",true), video:index("Video Interview",true) };
+  const totalCol = index('Total Connects');
+  const outbidColumns = header.flatMap((label, column) => /^(?:out\s*bid|outbit)$/i.test(label.trim()) ? [column] : []);
+  if (outbidColumns.length > 1) throw Error("Ambiguous Outbid column.");
+  const outbidCol = outbidColumns[0] ?? -1;
+  const flagColumns = { viewed:index("Viewed",true), replied:index("Messaged",true), interviewed:index("Started Interviews",true), hired:index("Hired"), called:index("Call",true), boosted:index("Boosted",true), video:index("Video Interview",true) };
   const proposals: UpworkProposal[] = [], reviews: string[] = [];
   let year=rules.year, anchorDate: string | undefined;
   for(let ri=headerIndex+1;ri<grid.length;ri++) {
     const row=grid[ri], at=ri+1;
     const cell=(ci:number)=>ci<0?"":row[ci]?.trim()||"";
     const anchor=cell(rules.dateAnchorColumn);
+    const rawDate=cell(dateCol);
     const monthAnchor=monthSectionYear(anchor);
     if(monthAnchor!==undefined){year=monthAnchor;anchorDate=undefined;}
-    else if(anchor){anchorDate=appliedDate(anchor,year);}
+    else if(anchor){anchorDate=appliedDate(anchor,year,rawDate);}
     const title=cell(titleCol);
     if(!title)continue; // Anchor rows, formatting-only rows and right-side legends are not proposals.
     const titleMonth=monthSectionYear(title);
@@ -70,23 +83,27 @@ export function parseAppliedJobs(grid: Grid, m: UpworkMapping, spreadsheetId: st
       continue; // A month divider in the title column is not a job; stop inheriting the previous month's date.
     }
     const issues: string[]=[];
-    const rawDate=cell(dateCol);
     const dayDate=appliedDate(rawDate,year);
     let submittedDate=anchorDate||dayDate||"";
     if(anchor&&monthAnchor===undefined&&!anchorDate){submittedDate="";issues.push("Ambiguous or invalid numeric date anchor; date unresolved.");}
     if(anchorDate&&dayDate&&anchorDate!==dayDate)issues.push(`Date anchor ${anchorDate} disagrees with Day ${dayDate}; anchor retained.`);
     if(!submittedDate)issues.push("Submission date unresolved; excluded from dated trends, retained in all-date totals.");
     const weekday=rawDate.match(/\b(Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\b/i);
-    if(weekday&&submittedDate&&["sun","mon","tue","wed","thu","fri","sat"][new Date(submittedDate+"T00:00:00Z").getUTCDay()]!==weekday[1].slice(0,3).toLowerCase())issues.push("Written weekday disagrees with the recorded date/year.");
+    if(weekday&&submittedDate&&weekdayOf(submittedDate)!==weekday[1].slice(0,3).toLowerCase())issues.push("Written weekday disagrees with the recorded date/year.");
     function count(ci:number,label:string){const raw=cell(ci);if(!raw||raw==="-"||/^n\/?a$/i.test(raw))return undefined;if(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw))){issues.push("Invalid "+label+"; retained as unknown.");return undefined;}return Number(raw);}
     function flag(ci:number,label:string){const raw=cell(ci);if(!raw||raw==="-"||/^n\/?a$/i.test(raw))return undefined;if(/^(yes|held|hired)$/i.test(raw))return true;if(/^no$/i.test(raw))return false;issues.push("Uninterpreted "+label+" marking: "+raw);return undefined;}
     const flags=Object.fromEntries(Object.entries(flagColumns).map(([field,ci])=>[field,flag(ci,field)])) as NonNullable<UpworkProposal["flags"]>;
+    const outbid = cell(outbidCol);
+    if (/^(yes|outbid|outbit)$/i.test(outbid)) flags.outbid = true;
+    else if (/^no$/i.test(outbid)) flags.outbid = false;
+    else if (outbid && !/^(?:-|n\/?a)$/i.test(outbid)) issues.push("Uninterpreted Outbid marking: " + outbid);
     const rawStage=cell(stageCol), stage=Object.hasOwn(m.stageMap,rawStage)?m.stageMap[rawStage]:undefined;
     if(rawStage&&!stage)issues.push("Outcome preserved as a note; no stage inferred: "+rawStage);
     if(!rawStage)issues.push("Outcome not recorded.");
     if((stage==="Won"&&flags.hired===false)||(stage==="Lost"&&flags.hired===true))issues.push("Result and Hired disagree; review outcome.");
     const connects=count(connectsCol,"Connects"),boostedConnects=count(boostCol,"Boosted Connects");
-    if(connects!==undefined&&boostedConnects!==undefined&&boostedConnects>connects)issues.push("Boosted Connects exceeds Connects; overlap/spend basis unresolved.");
+    const totalConnects = count(totalCol, "Total Connects");
+    if (totalConnects === undefined && connects !== undefined && boostedConnects !== undefined && boostedConnects > connects) issues.push("Boosted Connects exceeds Connects; check the recorded values.");
     const owner=cell(ownerCol)||"Unassigned";
     if(owner==="Unassigned")issues.push("Applied By not recorded; no employee identity inferred.");
     const rawKind=cell(kindCol),kind=rawKind==="Proposal"||rawKind==="Invite"?rawKind:undefined;
@@ -104,7 +121,7 @@ export function parseAppliedJobs(grid: Grid, m: UpworkMapping, spreadsheetId: st
       else if (linkCell.urls.length) issues.push("Job links are ambiguous or not an HTTPS Upwork URL; link not exposed.");
     }
     for(const issue of issues)reviews.push(`Row ${at}: ${issue}`);
-    proposals.push({recordId:`${spreadsheetId}/${tab}/row:${at}`,submittedDate,title,owner,profile:cell(profileCol)||"Unspecified",rawStage,stage,kind,connects,boostedConnects,jobUrl,flags,rawDate,rawTime:cell(timeCol),details,issues,source:{spreadsheetId,tab,row:at}});
+    proposals.push({recordId:`${spreadsheetId}/${tab}/row:${at}`,submittedDate,title,owner,profile:cell(profileCol)||"Unspecified",rawStage,stage,kind,connects,boostedConnects,totalConnects,jobUrl,flags,rawDate,rawTime:cell(timeCol),details,issues,source:{spreadsheetId,tab,row:at}});
   }
   if(!proposals.length)throw Error("No Applied Jobs records found; last-good data retained.");
   return {employees:[],attendance:[],upwork:proposals,warnings:[],reviews};

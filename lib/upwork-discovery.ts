@@ -1,3 +1,4 @@
+import { agencyHire, agencyInterview } from './upwork-outcomes';
 import type {UpworkKnowledgeRecord, UpworkProposal} from "./domain";
 import {fitScore, keywordIds, upworkJobKey} from "./upwork-knowledge";
 
@@ -76,7 +77,7 @@ export function discoveryRows(jobs:UpworkKnowledgeRecord[],proposals:UpworkPropo
     const markedDate=pktDay(f["Applied At"]);
     const applied=matched.length>0 || (yesNo(f["Applied?"])===true && (!markedDate||markedDate<=asOf));
     const score=fitScore(f["Total Fit Score (100)"]);
-    return {record,day:pktDay(f["Discovered At"]),hold:yesNo(f["Soft Hold"]),matched,applied,appliedKnown:matched.length>0||yesNo(f["Applied?"])!==undefined,score,
+    return {record,asOf,day:pktDay(f["Discovered At"]),hold:yesNo(f["Soft Hold"]),matched,applied,appliedKnown:matched.length>0||yesNo(f["Applied?"])!==undefined,score,
       appliedDay:matched.map(p=>p.submittedDate).filter(Boolean).sort()[0] || (applied?markedDate:undefined)};
   }).filter(r=>!r.day||r.day<=asOf);
 }
@@ -85,11 +86,11 @@ export function discoveryStats(rows:DiscoveryRow[]) {
   const clean=rows.filter(r=>r.hold===false),hold=rows.filter(r=>r.hold===true);
   const rate=(group:DiscoveryRow[])=>group.length&&group.some(r=>r.appliedKnown)?group.filter(r=>r.applied).length/group.length:undefined;
   const scores=rows.flatMap(r=>r.score===undefined?[]:[r.score]);
-  const interviewEvidence=rows.some(r=>r.matched.some(p=>p.flags?.interviewed!==undefined||p.stage==="Interview"));
-  const hireEvidence=rows.some(r=>r.matched.some(p=>p.flags?.hired!==undefined||p.stage==="Won"||p.stage==="Lost"));
+  const interviewEvidence=rows.some(r=>r.matched.some(p=>p.flags?.interviewed!==undefined||!!p.interviewDate||p.stage==="Interview"));
+  const hireEvidence=rows.some(r=>r.matched.some(p=>p.flags?.hired===false||!!p.wonDate||p.stage==="Won"||p.stage==="Lost"));
   return {total:rows.length,clean:clean.length,hold:hold.length,unknownHold:rows.length-clean.length-hold.length,
-    interviews:interviewEvidence?rows.filter(r=>r.matched.some(p=>p.flags?.interviewed===true||p.stage==="Interview")).length:undefined,
-    hires:hireEvidence?rows.filter(r=>r.matched.some(p=>(p.flags?.hired===true&&p.stage!=="Lost")||(p.stage==="Won"&&p.flags?.hired!==false))).length:undefined,
+    interviews:interviewEvidence?rows.filter(r=>r.matched.some(p=>agencyInterview(p,r.asOf))).length:undefined,
+    hires:hireEvidence?rows.filter(r=>r.matched.some(p=>agencyHire(p,r.asOf))).length:undefined,
     applied:rows.filter(r=>r.applied).length,conversion:rate(rows),holdConversion:rate(hold),cleanConversion:rate(clean),
     holdRate:rows.length?hold.length/rows.length:undefined,score:average(scores),scored:scores.length,
     high80:scores.length?scores.filter(s=>s>=80).length/scores.length:undefined,

@@ -1,3 +1,5 @@
+import { agencyHire, agencyInterview } from './upwork-outcomes';
+import { parseReport, reportTabs } from './upwork-reports';
 import { parseAppliedJobs } from "./upwork-applied";
 import {parseKnowledge} from "./upwork-knowledge";
 import type { Grid, Mapping, Parsed, UpworkMapping, UpworkProposal, UpworkStage, ProfileLinkCells } from "./domain";
@@ -12,6 +14,7 @@ export function validateUpworkMapping(value: unknown): UpworkMapping {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Invalid Upwork mapping.");
   const candidate = value as UpworkMapping;
   if(candidate.knowledge!==undefined && !["keywords","relevant-jobs"].includes(candidate.knowledge))throw Error("Invalid Upwork knowledge mapping.");
+  if (candidate.report !== undefined && (typeof candidate.report !== "string" || !Object.hasOwn(reportTabs, candidate.report) || candidate.knowledge || candidate.appliedJobs)) throw Error("Invalid Upwork report layout.");
   if(candidate.knowledge && candidate.appliedJobs)throw Error("Choose one Upwork layout.");
   for (const field of fields) if (typeof candidate[field] !== "string" || candidate[field].length > 100 || /credential|password|secret|salary|payroll|bank|iban/i.test(candidate[field])) throw Error("Invalid or excluded Upwork field: " + field);
   if (!candidate.submittedDate.trim() || !candidate.title.trim() || !candidate.stage.trim()) throw Error("Upwork date, job title and stage columns are required.");
@@ -33,6 +36,10 @@ function isoDate(raw: string, row: number, field: string, required = false) {
 }
 export function parseUpwork(grid: Grid, mapping: Mapping, spreadsheetId: string, tab: string, links?: ProfileLinkCells): Parsed {
   const m = validateUpworkMapping(mapping.upwork);
+  if (m.report) {
+    if (reportTabs[m.report].toLowerCase() !== tab.toLowerCase()) throw Error("Report layout does not match the tab.");
+    return parseReport(grid, m.report);
+  }
   if(m.knowledge)return parseKnowledge(grid,m.knowledge,spreadsheetId,tab);
   if (m.appliedJobs) return parseAppliedJobs(grid, m, spreadsheetId, tab, links);
   const required = [m.submittedDate, m.title, m.stage].map(s => s.trim().toLowerCase());
@@ -88,14 +95,14 @@ export function upworkAnalytics(records: UpworkProposal[], asOf: string) {
   const reached = (date: string | undefined, stage: UpworkStage | undefined, target: UpworkStage) => date ? date <= asOf : stage === target;
   const proposals = rows.length;
   const replies = rows.filter(r => r.flags?.replied === true || reached(r.replyDate, r.stage, "Replied")).length;
-  const interviews = rows.filter(r => r.flags?.interviewed === true || reached(r.interviewDate, r.stage, "Interview")).length;
-  const wins = rows.filter(r => (r.flags?.hired === true && r.stage !== "Lost") || (r.flags?.hired !== false && reached(r.wonDate, r.stage, "Won"))).length;
+  const interviews = rows.filter(r => agencyInterview(r, asOf)).length;
+  const wins = rows.filter(r => agencyHire(r, asOf)).length;
   const replyEvidence = rows.some(r => r.flags?.replied !== undefined || !!r.replyDate || r.stage === "Replied");
-  const hireEvidence = rows.some(r => r.flags?.hired !== undefined || !!r.wonDate || r.stage === "Won" || r.stage === "Lost");
+  const hireEvidence = rows.some(r => r.flags?.hired === false || !!r.wonDate || r.stage === "Won" || r.stage === "Lost");
   const interviewEvidence = rows.some(r => r.flags?.interviewed !== undefined || !!r.interviewDate || r.stage === "Interview");
   const connectsRows = rows.filter(r => r.connects !== undefined);
   const withFlag = (field: "viewed" | "replied" | "interviewed" | "hired") => rows.filter(r => r.flags?.[field] !== undefined).length;
-  return { proposals, replies, interviews, wins, replyEvidence, hireEvidence, interviewEvidence, viewed: rows.filter(r => r.flags?.viewed === true).length, viewedCoverage: withFlag("viewed"), replyCoverage: withFlag("replied"), interviewCoverage: withFlag("interviewed"), hiredCoverage: withFlag("hired"), boostedConnects: rows.reduce((n, r) => n + (r.boostedConnects || 0), 0), boostedConnectsCoverage: rows.filter(r => r.boostedConnects !== undefined).length, invites: rows.filter(r => r.kind === "Invite").length, unknownDates: rows.filter(r => !r.submittedDate).length, issues: rows.reduce((n, r) => n + (r.issues?.length || 0), 0), replyRate: proposals && replyEvidence ? replies / proposals : undefined, winRate: proposals && hireEvidence ? wins / proposals : undefined, connects: connectsRows.reduce((n, r) => n + r.connects!, 0), connectsCoverage: connectsRows.length, missingOwners: rows.filter(r => r.owner === "Unassigned").length, missingStages: rows.filter(r => !r.stage).length, futureSubmissions: records.length - rows.length };
+  return { proposals, replies, interviews, wins, totalConnects: rows.reduce((sum, row) => sum + (row.totalConnects ?? 0), 0), totalConnectsCoverage: rows.filter(row => row.totalConnects !== undefined).length, outbid: rows.filter(row => row.flags?.outbid === true).length, outbidCoverage: rows.filter(row => row.flags?.outbid !== undefined).length, replyEvidence, hireEvidence, interviewEvidence, viewed: rows.filter(r => r.flags?.viewed === true).length, viewedCoverage: withFlag("viewed"), replyCoverage: withFlag("replied"), interviewCoverage: withFlag("interviewed"), hiredCoverage: withFlag("hired"), boostedConnects: rows.reduce((n, r) => n + (r.boostedConnects || 0), 0), boostedConnectsCoverage: rows.filter(r => r.boostedConnects !== undefined).length, invites: rows.filter(r => r.kind === "Invite").length, unknownDates: rows.filter(r => !r.submittedDate).length, issues: rows.reduce((n, r) => n + (r.issues?.length || 0), 0), replyRate: proposals && replyEvidence ? replies / proposals : undefined, winRate: proposals && hireEvidence ? wins / proposals : undefined, connects: connectsRows.reduce((n, r) => n + r.connects!, 0), connectsCoverage: connectsRows.length, missingOwners: rows.filter(r => r.owner === "Unassigned").length, missingStages: rows.filter(r => !r.stage).length, futureSubmissions: records.length - rows.length };
 }
 export function upworkBucket(date: string, period: "Day" | "Week" | "Month") {
   if (period === "Month") return date.slice(0, 7);
