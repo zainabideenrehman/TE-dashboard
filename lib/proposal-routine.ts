@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { UpworkKnowledgeRecord } from "./domain";
-import { writeRoutineToBlob } from "./proposal-storage";
+import { usesBlobStorage, writeRoutineToBlob } from "./proposal-storage";
 
 export type ProposalProfile = "ZAIN" | "HASSAN";
 
@@ -26,7 +26,7 @@ export async function createProposalRoutine(records: UpworkKnowledgeRecord[], pr
     const body = [`# ${title}`, "", `- Profile: ${profile}`, `- Job ID: ${record.fields["Job ID"] || "Not recorded"}`, `- Source row: ${record.source.row}`, "", "## Relevant job data", "", fields, "", "## Routine instructions", "", "Read the repository proposal knowledge, perform the required research, select only supported case studies, draft the proposal and screening answers, then save the outputs in this folder for human review.", ""].join("\n");
     return { name: `${String(index + 1).padStart(2, "0")}_${safeName(title)}.md`, content: body };
   })];
-  if (process.env.VERCEL) await writeRoutineToBlob(folderName, files);
+  if (usesBlobStorage()) await writeRoutineToBlob(folderName, files);
   else { await mkdir(folder, { recursive: true, mode: 0o700 }); await Promise.all(files.map(file => writeFile(path.join(folder, file.name), file.content, { mode: 0o600 }))); }
-  return { folder: process.env.VERCEL ? folderName : folder, count: records.length, profile, status: "queued" as const };
+  return { folder: usesBlobStorage() ? folderName : folder, count: records.length, profile, status: "queued" as const };
 }

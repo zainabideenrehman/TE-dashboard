@@ -2,6 +2,10 @@ import { list, put } from "@vercel/blob";
 
 const prefix = "proposal-routines/";
 
+export function usesBlobStorage() {
+  return !!process.env.BLOB_READ_WRITE_TOKEN || !!process.env.VERCEL;
+}
+
 function blobPath(folder: string, file: string) {
   return `${prefix}${folder}/${file}`;
 }
