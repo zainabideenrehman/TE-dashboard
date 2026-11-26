@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { UpworkKnowledgeRecord } from "./domain";
+import { writeRoutineToBlob } from "./proposal-storage";
 
 export type ProposalProfile = "ZAIN" | "HASSAN";
 
@@ -17,14 +18,15 @@ export async function createProposalRoutine(records: UpworkKnowledgeRecord[], pr
   const now = new Date();
   const stamp = now.toISOString().replace(/[:.]/g, "-");
   const folder = path.join(knowledgeRoot(), "proposals", `${stamp}_${profile.toLowerCase()}_routine`);
-  await mkdir(folder, { recursive: true, mode: 0o700 });
+  const folderName = path.basename(folder);
   const jobs = records.map((record, index) => ({ index: index + 1, recordId: record.recordId, jobId: record.fields["Job ID"] || "", title: record.fields["Job Title"] || "Untitled job", source: record.source }));
-  await writeFile(path.join(folder, "routine.json"), JSON.stringify({ version: 1, createdAt: now.toISOString(), profile, status: "queued", provider: "pending", jobs }, null, 2), { mode: 0o600 });
-  await Promise.all(records.map((record, index) => {
+  const files = [{ name: "routine.json", content: JSON.stringify({ version: 1, createdAt: now.toISOString(), profile, status: "queued", provider: "pending", jobs }, null, 2) }, ...records.map((record, index) => {
     const title = record.fields["Job Title"] || "Untitled job";
     const fields = Object.entries(record.fields).map(([key, value]) => `## ${key}\n${value || "Not recorded"}`).join("\n\n");
     const body = [`# ${title}`, "", `- Profile: ${profile}`, `- Job ID: ${record.fields["Job ID"] || "Not recorded"}`, `- Source row: ${record.source.row}`, "", "## Relevant job data", "", fields, "", "## Routine instructions", "", "Read the repository proposal knowledge, perform the required research, select only supported case studies, draft the proposal and screening answers, then save the outputs in this folder for human review.", ""].join("\n");
-    return writeFile(path.join(folder, `${String(index + 1).padStart(2, "0")}_${safeName(title)}.md`), body, { mode: 0o600 });
-  }));
-  return { folder, count: records.length, profile, status: "queued" as const };
+    return { name: `${String(index + 1).padStart(2, "0")}_${safeName(title)}.md`, content: body };
+  })];
+  if (process.env.VERCEL) await writeRoutineToBlob(folderName, files);
+  else { await mkdir(folder, { recursive: true, mode: 0o700 }); await Promise.all(files.map(file => writeFile(path.join(folder, file.name), file.content, { mode: 0o600 }))); }
+  return { folder: process.env.VERCEL ? folderName : folder, count: records.length, profile, status: "queued" as const };
 }

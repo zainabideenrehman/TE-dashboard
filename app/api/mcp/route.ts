@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { readToken } from "../../../lib/mcp-oauth";
+import { listRoutineFolders, readRoutineFromBlob, writeRoutineResultToBlob } from "../../../lib/proposal-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,24 +36,26 @@ function errorRpc(id: unknown, code: number, message: string) { return NextRespo
 async function callTool(name: string, args: Record<string, unknown>) {
   if (name === "list_proposal_routines") {
     let entries: string[] = [];
-    try { entries = (await readdir(routinesRoot(), { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort().reverse(); } catch { /* no routines yet */ }
+    try { entries = process.env.VERCEL ? await listRoutineFolders() : (await readdir(routinesRoot(), { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort().reverse(); } catch { /* no routines yet */ }
     return { content: [{ type: "text", text: JSON.stringify({ routines: entries }) }], structuredContent: { routines: entries } };
   }
   const routine = safeSegment(args.routine);
   if (!routine) throw Error("A safe routine folder name is required.");
   const folder = insideRoutines(routine);
   if (name === "read_proposal_routine") {
-    const files = (await readdir(folder, { withFileTypes: true })).filter((entry) => entry.isFile() && entry.name.endsWith(".md") || entry.name === "routine.json").map((entry) => entry.name);
-    const contents = await Promise.all(files.map(async (file) => ({ file, content: (await readFile(insideRoutines(routine, file), "utf8")).slice(0, 120_000) })));
+    const contents = process.env.VERCEL ? await readRoutineFromBlob(routine) : await (async () => {
+      const files = (await readdir(folder, { withFileTypes: true })).filter((entry) => (entry.isFile() && entry.name.endsWith(".md")) || entry.name === "routine.json").map((entry) => entry.name);
+      return Promise.all(files.map(async (file) => ({ file, content: (await readFile(insideRoutines(routine, file), "utf8")).slice(0, 120_000) })));
+    })();
     return { content: [{ type: "text", text: JSON.stringify({ routine, files: contents }) }], structuredContent: { routine, files: contents } };
   }
   if (name === "write_proposal_result") {
     const jobFile = safeSegment(args.jobFile);
     if (!jobFile || !jobFile.endsWith(".md")) throw Error("A safe Markdown job filename is required.");
     const output = ["# Proposal result", "", "## Proposal", String(args.proposal || ""), "", "## Screening answers", String(args.screeningAnswers || ""), "", "## Research notes", String(args.researchNotes || ""), "", "## Human review", "", "Do not submit until the selected profile, proposal, answers, links, attachments, pricing, and Upwork destination have been reviewed by a person.", ""].join("\n");
-    await mkdir(folder, { recursive: true });
     const outputFile = insideRoutines(routine, jobFile.replace(/\.md$/, ".result.md"));
-    await writeFile(outputFile, output, { mode: 0o600 });
+    if (process.env.VERCEL) await writeRoutineResultToBlob(routine, jobFile.replace(/\.md$/, ".result.md"), output);
+    else { await mkdir(folder, { recursive: true }); await writeFile(outputFile, output, { mode: 0o600 }); }
     return { content: [{ type: "text", text: `Saved ${path.basename(outputFile)} for human review.` }], structuredContent: { file: path.basename(outputFile), reviewRequired: true } };
   }
   throw Error("Unknown MCP tool.");
