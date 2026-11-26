@@ -270,7 +270,7 @@ export function Dashboard({
           ) : (
             <>
               {page === "Upwork BD" && !data.reviewOnly && <UpworkAnalytics sources={data.sources} />}
-              {page === "Integrations" && !data.reviewOnly && <Integrations sources={data.sources} />}
+              {page === "Integrations" && !data.reviewOnly && <Integrations sources={data.sources} mode="settings" />}
               {page === "Overview" && (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-7">

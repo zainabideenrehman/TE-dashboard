@@ -58,7 +58,7 @@ export function UpworkAnalytics({ sources }: { sources: Source[] }) {
     </nav>
   );
   if(view==="analytics")return <div className="space-y-5">{navigation}<UpworkDiscovery sources={linked} proposals={live}/></div>;
-  if(view==="apply")return <div className="space-y-5">{navigation}<Integrations sources={sources}/></div>;
+  if(view==="apply")return <div className="space-y-5">{navigation}<Integrations sources={sources} mode="apply"/></div>;
   if(view==="keywords"||view==="relevant-jobs")return <div className="space-y-5">{navigation}<UpworkKnowledge key={view} kind={view} sources={linked} proposals={live}/></div>;
   if (view !== "applied") {
     const reports = linked.filter(source => source.mapping.upwork?.report === view);
