@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { readToken } from "../../../lib/mcp-oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,11 @@ function insideRoutines(...segments: string[]) {
   return target;
 }
 function authorized(request: NextRequest) {
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (bearer && readToken(bearer)) return true;
   if (!process.env.VERCEL && !process.env.MCP_BEARER_TOKEN) return true;
   const expected = process.env.MCP_BEARER_TOKEN;
-  return !!expected && request.headers.get("authorization") === `Bearer ${expected}`;
+  return !!expected && bearer === expected;
 }
 function jsonRpc(id: unknown, result: unknown) { return NextResponse.json({ jsonrpc: "2.0", id, result }); }
 function errorRpc(id: unknown, code: number, message: string) { return NextResponse.json({ jsonrpc: "2.0", id, error: { code, message } }, { status: code === -32001 ? 401 : 400 }); }
