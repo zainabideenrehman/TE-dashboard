@@ -10,7 +10,7 @@ export function GET(request: Request) {
   const state = createState({ clientId, redirectUri, responseState: url.searchParams.get("state") || "", codeChallenge: url.searchParams.get("code_challenge") || "", scope: url.searchParams.get("scope") || "proposal:routines:read proposal:routines:write" });
   const github = new URL("https://github.com/login/oauth/authorize");
   github.searchParams.set("client_id", process.env.GITHUB_OAUTH_CLIENT_ID || "");
-  github.searchParams.set("redirect_uri", `${url.origin}/api/oauth/callback`);
+  github.searchParams.set("redirect_uri", `${url.origin}/api/auth/github/callback`);
   github.searchParams.set("scope", "read:user user:email");
   github.searchParams.set("state", state);
   return NextResponse.redirect(github);
